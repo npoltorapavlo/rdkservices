@@ -86,7 +86,7 @@ namespace WPEFramework {
         // As the registration/unregistration of notifications is realized by the class PluginHost::JSONRPC,
         // this class exposes a public method called, Notify(), using this methods, all subscribed clients
         // will receive a JSONRPC message as a notification, in case this method is called.
-        class Network : public AbstractPlugin {
+        class Network : public AbstractPlugin, public PluginHost::IWeb {
         private:
 
             // We do not allow this plugin to be copied !!
@@ -154,6 +154,7 @@ namespace WPEFramework {
             //Build QueryInterface implementation, specifying all possible interfaces to be returned.
             BEGIN_INTERFACE_MAP(Network)
             INTERFACE_ENTRY(PluginHost::IPlugin)
+            INTERFACE_ENTRY(PluginHost::IWeb)
             INTERFACE_ENTRY(PluginHost::IDispatcher)
             END_INTERFACE_MAP
 
@@ -162,6 +163,10 @@ namespace WPEFramework {
             virtual void Deinitialize(PluginHost::IShell* service) override;
             virtual std::string Information() const override;
             uint32_t getPublicIPInternal(const JsonObject& parameters, JsonObject& response);
+
+            //IWeb methods
+            virtual void Inbound(Web::Request& request) override {}
+            virtual Core::ProxyType<Web::Response> Process(const Web::Request& request) override;
 
         public:
             static Network *_instance;

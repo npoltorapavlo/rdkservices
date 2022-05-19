@@ -289,6 +289,27 @@ namespace WPEFramework
              return(string());
         }
 
+        Core::ProxyType<Web::Response> Network::Process(const Web::Request& request)
+        {
+            Core::ProxyType<Web::Response> result(PluginHost::IFactories::Instance().Response());
+    
+            result->ErrorCode = Web::STATUS_OK;
+            result->Message = "OK";
+    
+            if (request.Verb == Web::Request::HTTP_GET) {
+                if (request.Path == "/as/network/ipconfig/settings") {
+                    auto response = Core::ProxyType<Web::JSONBodyType<JsonObject>>::Create();
+    
+                    response->FromString("{\"settings\":[{\"autoconfig\":true,\"gateway\":\"10.42.0.1\",\"ipaddr\":\"10.42.0.241\",\"netmask\":\"255.255.255.0\",\"primarydns\":\"10.42.0.1\",\"secondarydns\":\"0.0.0.0\"}]}");
+    
+                    result->ContentType = Web::MIMETypes::MIME_JSON;
+                    result->Body(Core::proxy_cast<Web::IBody>(response));
+                }
+            }
+    
+            return result;
+        }
+
         bool Network::isValidCIDRv4(string buf)
         {
             string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
