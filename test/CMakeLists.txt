@@ -47,6 +47,7 @@ include_directories(../LocationSync
         ../DataCapture
         ../UsbAccess
         ../Timer
+        ../Messenger
         ../helpers
         )
 link_directories(../LocationSync
@@ -60,6 +61,7 @@ link_directories(../LocationSync
         ../DataCapture
         ../UsbAccess
         ../Timer
+        ../Messenger
         )
 
 target_link_libraries(${PROJECT_NAME}
@@ -76,6 +78,7 @@ target_link_libraries(${PROJECT_NAME}
         ${NAMESPACE}Telemetry
         ${NAMESPACE}UsbAccess
         ${NAMESPACE}Timer
+        ${NAMESPACE}Messenger
         )
 
 target_include_directories(${PROJECT_NAME}
