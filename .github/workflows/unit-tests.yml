@@ -158,6 +158,12 @@ jobs:
         with:
           path: rdkservices
 
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          config-file: "${{github.workspace}}/rdkservices/.github/codeql/codeql-config.yml"
+          languages: cpp
+
       - name: Configure rdkservices
         run: >
           cmake
@@ -269,6 +275,9 @@ jobs:
           -o coverage
           -t "rdkservices coverage"
           filtered_coverage.info
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
 
       - name: Upload artifacts
         if: ${{ !env.ACT }}
