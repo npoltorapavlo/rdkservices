@@ -1,0 +1,214 @@
+# For most projects, this workflow file will not need changing; you simply need
+# to commit it to your repository.
+#
+# You may wish to alter this file to override the set of languages analyzed,
+# or to provide custom queries or build logic.
+#
+# ******** NOTE ********
+# We have attempted to detect the languages in your repository. Please check
+# the `language` matrix defined below to confirm you have the correct set of
+# supported CodeQL languages.
+#
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ main, 'sprint/**', 'release/**' ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ main, 'sprint/**', 'release/**' ]
+  schedule:
+    - cron: '36 6 * * 6'
+
+env:
+  BUILD_TYPE: Debug
+
+  # Refs for 2208_sprint.
+  THUNDER_REF: "02f6ccbca6832043cbc94cc28c1bda7d4954a4e6"
+  INTERFACES_REF: "cb3b8476aa3b00ae9e73ff0cf64114563d1ee7ae"
+
+  THUNDER_BINDING: "127.0.0.1"
+  THUNDER_PORT: "55555"
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'cpp' ]
+        # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby' ]
+        # Learn more about CodeQL language support at https://aka.ms/codeql-docs/language-support
+
+    steps:
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.x'
+    - run: pip install jsonref
+
+    - name: Set up CMake
+      # 3.16.x To support flow control commands to be overridden.
+      # Installs in: find /opt -ipath *bin/cmake
+      uses: jwlawson/actions-setup-cmake@v1.12
+      with:
+        cmake-version: '3.16.x'
+
+    - name: Install packages
+      run: >
+        sudo apt update && sudo apt install -y libsqlite3-dev libcurl4-openssl-dev
+
+    - name: Checkout Thunder
+      uses: actions/checkout@v3
+      with:
+        repository: rdkcentral/Thunder
+        path: Thunder
+        ref: ${{env.THUNDER_REF}}
+
+    - name: Checkout ThunderInterfaces
+      uses: actions/checkout@v3
+      with:
+        repository: rdkcentral/ThunderInterfaces
+        path: ThunderInterfaces
+        ref: ${{env.INTERFACES_REF}}
+
+    - name: Checkout rdkservices
+      uses: actions/checkout@v3
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+        # If you wish to specify custom queries, you can do so here or in a config file.
+        # By default, queries listed here will override any specified in a config file.
+        # Prefix the list here with "+" to use these queries and those in the config file.
+        
+        # Details on CodeQL's query packs refer to : https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+        # queries: security-extended,security-and-quality
+
+        
+    # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
+    # If this step fails, then you should remove it and run the build manually (see below)
+    # - name: Autobuild
+    #   uses: github/codeql-action/autobuild@v2
+
+    # ℹ️ Command-line programs to run using the OS shell.
+    # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+
+    #   If the Autobuild fails above, remove it and uncomment the following three lines. 
+    #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
+
+    - name: Configure ThunderTools
+      run: >
+        cmake
+        -S "${{github.workspace}}/Thunder/Tools"
+        -B build/ThunderTools
+        -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+        -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+        -DGENERIC_CMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+
+    - name: Build ThunderTools
+      run: >
+        cmake
+        --build build/ThunderTools
+
+    - name: Install ThunderTools
+      run: >
+        cmake
+        --install build/ThunderTools
+
+    - name: Configure Thunder
+      run: >
+        cmake
+        -S "${{github.workspace}}/Thunder"
+        -B build/Thunder
+        -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+        -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+        -DBUILD_TYPE=${{env.BUILD_TYPE}}
+        -DBINDING=${{env.THUNDER_BINDING}}
+        -DPORT=${{env.THUNDER_PORT}}
+
+    - name: Build Thunder
+      run: >
+        cmake
+        --build build/Thunder
+
+    - name: Install Thunder
+      run: >
+        cmake
+        --install build/Thunder
+
+    - name: Configure ThunderInterfaces
+      run: >
+        cmake
+        -S "${{github.workspace}}/ThunderInterfaces"
+        -B build/ThunderInterfaces
+        -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+        -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+
+    - name: Build ThunderInterfaces
+      run: >
+        cmake
+        --build build/ThunderInterfaces
+
+    - name: Install ThunderInterfaces
+      run: >
+        cmake
+        --install build/ThunderInterfaces
+
+    - name: Configure rdkservices
+      run: >
+        cmake
+        -S "${{github.workspace}}"
+        -B build/rdkservices
+        -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+        -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+        -DCMAKE_CXX_FLAGS="-I ${{github.workspace}}/Tests/headers
+        -I ${{github.workspace}}/Tests/headers/devicesettings
+        --coverage -Wall -Werror -Wno-unused-parameter -Wno-unused-result -Wl,-wrap,system
+        -DENABLE_TELEMETRY_LOGGING
+        -DUSE_IARMBUS"
+        -DCOMCAST_CONFIG=OFF
+        -DPLUGIN_DATACAPTURE=ON
+        -DPLUGIN_DEVICEDIAGNOSTICS=ON
+        -DPLUGIN_LOCATIONSYNC=ON
+        -DPLUGIN_PERSISTENTSTORE=ON
+        -DPLUGIN_TIMER=ON
+        -DPLUGIN_SECURITYAGENT=ON
+        -DPLUGIN_DEVICEIDENTIFICATION=ON
+        -DBUILD_REALTEK=ON
+        -DPLUGIN_FRAMERATE=ON
+        -DCMAKE_DISABLE_FIND_PACKAGE_DS=ON
+        -DCMAKE_DISABLE_FIND_PACKAGE_IARMBus=ON
+        -DPLUGIN_AVINPUT=ON
+        -DPLUGIN_TELEMETRY=ON
+        -DPLUGIN_USBACCESS=ON
+        -DPLUGIN_LOGGINGPREFERENCES=ON
+        -DPLUGIN_USERPREFERENCES=ON
+        -DCMAKE_DISABLE_FIND_PACKAGE_Udev=ON
+        -DPLUGIN_MESSENGER=ON
+        -DPLUGIN_DEVICEINFO=ON
+        -DPLUGIN_SYSTEMSERVICES=ON
+        -DCMAKE_DISABLE_FIND_PACKAGE_RFC=ON
+        -DRDK_SERVICES_TEST=ON
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: Build rdkservices
+      run: >
+        cmake
+        --build build/rdkservices
+
+    - name: Install rdkservices
+      run: >
+        cmake
+        --install build/rdkservices
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
