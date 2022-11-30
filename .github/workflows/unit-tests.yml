@@ -107,6 +107,13 @@ jobs:
           path: ThunderInterfaces
           ref: ${{env.INTERFACES_REF}}
 
+      - name: ThunderInterfaces/pull/220
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd ThunderInterfaces
+          git fetch https://github.com/npoltorapavlo/ThunderInterfaces.git 75d7c2e16390369d57bb1becdd6572ea47891bd7
+          git cherry-pick -n FETCH_HEAD
+
       - name: Build ThunderInterfaces
         if: steps.cache.outputs.cache-hit != 'true'
         run: >

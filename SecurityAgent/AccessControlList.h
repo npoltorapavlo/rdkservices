@@ -381,14 +381,19 @@ namespace Plugin {
         }
         void Clear()
         {
+            Core::SafeSyncType<Core::CriticalSection> lock(_adminLock);
+
             _urlMap.clear();
             _filterMap.clear();
             _unusedRoles.clear();
             _undefinedURLS.clear();
+            _controlList.Clear();
         }
         const Filter* FilterMapFromURL(const string& URL) const
         {
             auto origin = GetUrlOrigin(URL);
+
+            Core::SafeSyncType<Core::CriticalSection> lock(_adminLock);
 
             const Filter* result = nullptr;
             std::smatch matchList;
@@ -418,6 +423,37 @@ namespace Plugin {
             if (error.IsSet() == true) {
                 SYSLOG(Logging::ParsingError, (_T("Parsing failed with %s"), ErrorDisplayMessage(error.Value()).c_str()));
             }
+
+            return Load(controlList);
+        }
+        uint32_t Load(string& source)
+        {
+            JSONACL controlList;
+            Core::OptionalType<Core::JSON::Error> error;
+            controlList.IElement::FromString(source, error);
+            if (error.IsSet() == true) {
+                SYSLOG(Logging::ParsingError, (_T("Parsing failed with %s"), ErrorDisplayMessage(error.Value()).c_str()));
+            }
+
+            return Load(controlList);
+        }
+        uint32_t Save(Core::File& file) const
+        {
+            Core::SafeSyncType<Core::CriticalSection> lock(_adminLock);
+
+            return (_controlList.IElement::ToFile(file) ? Core::ERROR_NONE : Core::ERROR_GENERAL);
+        }
+        uint32_t Save(string& text) const
+        {
+            Core::SafeSyncType<Core::CriticalSection> lock(_adminLock);
+
+            return (_controlList.IElement::ToString(text) ? Core::ERROR_NONE : Core::ERROR_GENERAL);
+        }
+
+    private:
+        uint32_t Load(const JSONACL& controlList)
+        {
+            Core::SafeSyncType<Core::CriticalSection> lock(_adminLock);
             _unusedRoles.clear();
 
             JSONACL::Roles::Iterator rolesIndex = controlList.ACL.Elements();
@@ -431,6 +467,15 @@ namespace Plugin {
                 _filterMap.emplace(std::piecewise_construct,
                     std::forward_as_tuple(roleName),
                     std::forward_as_tuple(rolesIndex.Current()));
+
+                auto& role = _controlList.ACL._roles[roleName];
+                role.Default = plugins.Default;
+                auto it = rolesIndex.Current().Elements();
+                while (it.Next() == true) {
+                    auto& rules = role._plugins[it.Key()];
+                    rules.Default = it.Current().Default;
+                    rules.Methods = it.Current().Methods;
+                }
             }
 
             Core::JSON::ArrayType<JSONACL::Group>::Iterator index = controlList.Groups.Elements();
@@ -461,6 +506,15 @@ namespace Plugin {
                     if (found != _unusedRoles.end()) {
                         _unusedRoles.erase(found);
                     }
+
+                    auto& group = _controlList.Groups.Add();
+                    group.URL = index.Current().URL.Value();
+                    for (auto const& x : _filterMap) {
+                        if (&x.second == &entry) {
+                            group.Role = x.first;
+                            break;
+                        }
+                    }
                 }
             }
             return ((_unusedRoles.empty() && _undefinedURLS.empty()) ? Core::ERROR_NONE : Core::ERROR_INCOMPLETE_CONFIG);
@@ -472,6 +526,10 @@ namespace Plugin {
         std::map<string, Filter> _filterMap;
         std::list<string> _unusedRoles;
         std::list<string> _undefinedURLS;
+        JSONACL _controlList;
+        mutable Core::CriticalSection _adminLock;
+
+        friend class AccessControlListDynamicUpdates;
     };
 }
 }

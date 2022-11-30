@@ -16,8 +16,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #include "SecurityAgent.h"
+#include "AccessControlListPersist.h"
 #include "SecurityContext.h"
 #include "TokenFactory.h"
 
@@ -81,6 +82,8 @@ namespace Plugin {
         : _acl()
         , _dispatcher(nullptr)
         , _engine()
+        , _dac(nullptr)
+        , _dacPersist(nullptr)
     {
         RegisterAll();
     }
@@ -121,6 +124,20 @@ namespace Plugin {
             }
         }
 
+        Core::File dacFile(service->PersistentPath() + config.DAC.Value(), true);
+        if (dacFile.Exists() == false) {
+            dacFile = service->DataPath() + config.DAC.Value();
+        }
+        if ((dacFile.Exists() == true) && (dacFile.Open(true) == true)) {
+
+            _dac = Core::Service<AccessControlList>::Create<AccessControlList>();
+            _dacPersist = Core::Service<AccessControlListPersist>::Create<Exchange::IPersist>(*_dac, dacFile.Name());
+
+            if (_dac->Load(dacFile) == Core::ERROR_INCOMPLETE_CONFIG) {
+                SYSLOG(Logging::Startup, (_T("Incomplete config")));
+            }
+        }
+
         ASSERT(_dispatcher == nullptr);
         ASSERT(subSystem != nullptr);
 
@@ -130,7 +147,7 @@ namespace Plugin {
             connector = service->VolatilePath() + _T("token");
         }
         _engine = Core::ProxyType<RPC::InvokeServer>::Create(&Core::IWorkerPool::Instance());
-        _dispatcher.reset(new TokenDispatcher(Core::NodeId(connector.c_str()), service->ProxyStubPath(), this, _engine));
+        _dispatcher.reset(new TokenDispatcher(Core::NodeId(connector.c_str()), service->ProxyStubPath(), this, _dac, _dacPersist, _engine));
 
         if (_dispatcher != nullptr) {
 
@@ -171,6 +188,15 @@ namespace Plugin {
         _engine.Release();
 
         _acl.Clear();
+
+        if (_dacPersist != nullptr) {
+            _dacPersist->Release();
+            _dacPersist = nullptr;
+        }
+        if (_dac != nullptr) {
+            _dac->Release();
+            _dac = nullptr;
+        }
     }
 
     /* virtual */ string SecurityAgent::Information() const
@@ -203,7 +229,14 @@ namespace Plugin {
 
             if (load != static_cast<uint16_t>(~0)) {
                 // Seems like we extracted a valid payload, time to create an security context
-                result = Core::Service<SecurityContext>::Create<SecurityContext>(&_acl, load, payload, _servicePrefix);
+                Payload payloadJson;
+                payloadJson.FromString(string(reinterpret_cast<const TCHAR*>(payload), load));
+
+                if (payloadJson.Type.IsSet() && (payloadJson.Type == tokentype::DAC)) {
+                    result = Core::Service<SecurityContext>::Create<SecurityContext>(_dac, load, payload, _servicePrefix);
+                } else {
+                    result = Core::Service<SecurityContext>::Create<SecurityContext>(&_acl, load, payload, _servicePrefix);
+                }
             }
         }
         return (result);

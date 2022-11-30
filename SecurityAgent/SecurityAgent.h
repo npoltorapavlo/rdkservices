@@ -24,6 +24,8 @@
 
 #include <interfaces/json/JsonData_SecurityAgent.h>
 
+#include <interfaces/IPersist.h>
+
 namespace WPEFramework {
 namespace Plugin {
 
@@ -42,14 +44,25 @@ namespace Plugin {
                 const Core::NodeId& source,
                 const std::string& proxyStubPath,
                 PluginHost::IAuthenticate* parentInterface,
+                Exchange::IAccessControlList* aclInterface,
+                Exchange::IPersist* persistInterface,
                 const Core::ProxyType<RPC::InvokeServer>& engine
                 )
                 : RPC::Communicator(source, proxyStubPath, Core::ProxyType<Core::IIPCServer>(engine))
                 , _parentInterface(parentInterface)
+                , _aclInterface(aclInterface)
+                , _persistInterface(persistInterface)
             {   
                 if(_parentInterface != nullptr){
                     _parentInterface->AddRef();
                 }
+                if (_aclInterface != nullptr) {
+                    _aclInterface->AddRef();
+                }
+                if (_persistInterface != nullptr) {
+                    _persistInterface->AddRef();
+                }
+
                 engine->Announcements(Announcement());
                 Open(Core::infinite);
             }
@@ -57,6 +70,12 @@ namespace Plugin {
             {
                 if(_parentInterface != nullptr){
                     _parentInterface->Release();
+                }
+                if (_aclInterface != nullptr) {
+                    _aclInterface->Release();
+                }
+                if (_persistInterface != nullptr) {
+                    _persistInterface->Release();
                 }
 
                 Close(Core::infinite);
@@ -74,12 +93,20 @@ namespace Plugin {
 
                     TRACE(Trace::Information, ("SecurityAgent interface(IAuthenticate) aquired => %p", this));
                     result = _parentInterface;
+                } else if (interfaceId == Exchange::IAccessControlList::ID) {
+                    _aclInterface->AddRef();
+                    result = _aclInterface;
+                } else if (interfaceId == Exchange::IPersist::ID) {
+                    _persistInterface->AddRef();
+                    result = _persistInterface;
                 }
                 return (result);
             }
 
         private:
             PluginHost::IAuthenticate* _parentInterface;
+            Exchange::IAccessControlList* _aclInterface;
+            Exchange::IPersist* _persistInterface;
         };
 
         class Config : public Core::JSON::Container {
@@ -90,11 +117,13 @@ namespace Plugin {
         public:
             Config()
                 : Core::JSON::Container()
-                , ACL(_T("acl.json"))
+                , ACL()
                 , Connector()
+                , DAC()
             {
                 Add(_T("acl"), &ACL);
                 Add(_T("connector"), &Connector);
+                Add(_T("dac"), &DAC);
             }
             ~Config()
             {
@@ -103,6 +132,29 @@ namespace Plugin {
         public:
             Core::JSON::String ACL;
             Core::JSON::String Connector;
+            Core::JSON::String DAC;
+        };
+
+        enum tokentype {
+            DAC
+        };
+
+        class Payload : public Core::JSON::Container {
+        private:
+            Payload(const Payload&) = delete;
+            Payload& operator=(const Payload&) = delete;
+
+        public:
+            Payload()
+                : Core::JSON::Container()
+                , Type()
+            {
+                Add(_T("type"), &Type);
+            }
+            ~Payload() = default;
+
+        public:
+            Core::JSON::EnumType<tokentype> Type;
         };
 
     public:
@@ -165,6 +217,8 @@ namespace Plugin {
         std::unique_ptr<TokenDispatcher> _dispatcher; 
         Core::ProxyType<RPC::InvokeServer> _engine;
         string _servicePrefix;
+        AccessControlList* _dac;
+        Exchange::IPersist* _dacPersist;
     };
 
 } // namespace Plugin
