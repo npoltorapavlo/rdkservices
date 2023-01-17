@@ -203,7 +203,6 @@ jobs:
 
       - name: Build rdkservices
         run: >
-          build-wrapper-linux-x86-64 --out-dir "${{github.workspace}}/rdkservices/${{ env.BUILD_WRAPPER_OUT_DIR }}"
           cmake
           -S "${{github.workspace}}/rdkservices"
           -B build/rdkservices
@@ -274,6 +273,7 @@ jobs:
           -DPLUGIN_COMPOSITEINPUT=ON
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
           &&
+          build-wrapper-linux-x86-64 --out-dir "${{github.workspace}}/rdkservices/${{ env.BUILD_WRAPPER_OUT_DIR }}"
           cmake --build build/rdkservices -j8
           &&
           cmake --install build/rdkservices
@@ -353,8 +353,10 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
           sonar-scanner -X
-          -Dproject.settings="${{github.workspace}}/rdkservices/sonar-project.properties"
-          --define sonar.cfamily.build-wrapper-output="${{github.workspace}}/rdkservices/${{ env.BUILD_WRAPPER_OUT_DIR }}"
+          -Dsonar.projectKey=npoltorapavlo_rdkservices
+          -Dsonar.organization=npoltorapavlo
+          -Dsonar.projectBaseDir="${{github.workspace}}/rdkservices/"
+          -Dsonar.cfamily.build-wrapper-output="${{github.workspace}}/rdkservices/${{ env.BUILD_WRAPPER_OUT_DIR }}"
 
       - name: Upload artifacts
         if: ${{ !env.ACT }}
