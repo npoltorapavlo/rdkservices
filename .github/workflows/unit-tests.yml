@@ -10,6 +10,7 @@ env:
   BUILD_TYPE: Debug
   THUNDER_REF: "0731e67a8c9dea37a728201c9d19df5fbdfcbfe5"
   INTERFACES_REF: "f61d710cc51628819d0fd80b8cc65e55eeec12b4"
+  BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
 
 jobs:
   unit-tests:
@@ -197,8 +198,12 @@ jobs:
         if: ${{ matrix.compiler == 'gcc' && matrix.coverage == 'with-coverage' && !env.ACT }}
         run: echo "TOOLCHAIN_FILE=${{github.workspace}}/rdkservices/Tests/gcc-with-coverage.cmake" >> $GITHUB_ENV
 
+      - name: Install sonar-scanner and build-wrapper
+        uses: SonarSource/sonarcloud-github-c-cpp@v1
+
       - name: Build rdkservices
         run: >
+          build-wrapper-linux-x86-64 --out-dir "${{github.workspace}}/rdkservices/${{ env.BUILD_WRAPPER_OUT_DIR }}"
           cmake
           -S "${{github.workspace}}/rdkservices"
           -B build/rdkservices
@@ -341,6 +346,15 @@ jobs:
           -o coverage
           -t "rdkservices coverage"
           filtered_coverage.info
+
+      - name: Run sonar-scanner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          sonar-scanner -X
+          -Dproject.settings="${{github.workspace}}/rdkservices/sonar-project.properties"
+          --define sonar.cfamily.build-wrapper-output="${{github.workspace}}/rdkservices/${{ env.BUILD_WRAPPER_OUT_DIR }}"
 
       - name: Upload artifacts
         if: ${{ !env.ACT }}
