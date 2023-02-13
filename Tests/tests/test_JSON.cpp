@@ -1,8 +1,13 @@
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #include "Module.h"
 
+#include <fstream>
+
 using namespace WPEFramework;
+
+using ::testing::Eq;
 
 TEST(JSONTest, EMPTY)
 {
@@ -280,4 +285,37 @@ TEST(JSONTest, JSONContainerFromStringWrong)
     payload.URL = example;
     EXPECT_TRUE(payload.URL.IsSet());
     EXPECT_EQ(example, payload.URL.Value());
+}
+
+TEST(JSONTest, JSONContainerFromFileAppends)
+{
+    {
+        std::ofstream file("/tmp/jsonObject1");
+        file << "{\"array\":[1,2,3],\"map\":{\"key1\":1,\"key2\":2}}";
+        file.close();
+    }
+
+    {
+        std::ofstream file("/tmp/jsonObject2");
+        file << "{\"array\":[1,2,3],\"map\":{\"key1\":\"new value\",\"key2\":2,\"key3\":3}}";
+        file.close();
+    }
+
+    JsonObject object;
+
+    {
+        Core::File file("/tmp/jsonObject1");
+        ASSERT_TRUE(file.Open(true));
+        EXPECT_TRUE(object.FromFile(file));
+    }
+
+    {
+        Core::File file("/tmp/jsonObject2");
+        ASSERT_TRUE(file.Open(true));
+        EXPECT_TRUE(object.FromFile(file));
+    }
+
+    string cString;
+    object.ToString(cString);
+    EXPECT_THAT(cString, Eq("{\"array\":[1,2,3,1,2,3],\"map\":{\"key1\":\"new value\",\"key2\":2,\"key3\":3}}"));
 }
