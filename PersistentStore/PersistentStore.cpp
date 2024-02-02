@@ -22,12 +22,12 @@
 #include "sqlite/Handle.h"
 #include "sqlite/Store2Type.h"
 #include "sqlite/Store2WithReconnectType.h"
-#if defined(WITH_CLOCK_SYNC)
-#include "sqlite/Store2WithClockSyncType.h"
-#endif
 #include "sqlite/StoreCacheType.h"
 #include "sqlite/StoreInspectorType.h"
 #include "sqlite/StoreLimitType.h"
+#if defined(WITH_CLOCK_SYNC)
+#include "iarm/Store2WithClockSyncType.h"
+#endif
 
 #include <fstream>
 
@@ -53,7 +53,7 @@ namespace {
 namespace Plugin {
 
 #if defined(WITH_CLOCK_SYNC)
-    class SqliteStore2 : public Sqlite::Store2WithClockSyncType<Sqlite::Store2WithReconnectType<Sqlite::Store2Type<Sqlite::Handle>>> {
+    class SqliteStore2 : public Iarm::Store2WithClockSyncType<Sqlite::Store2WithReconnectType<Sqlite::Store2Type<Sqlite::Handle>>> {
     };
 #else
     class SqliteStore2 : public Sqlite::Store2WithReconnectType<Sqlite::Store2Type<Sqlite::Handle>> {

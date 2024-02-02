@@ -1,4 +1,4 @@
-name: L1-Sqlite
+name: L1-PersistentStore-sqlite
 
 on:
   push:

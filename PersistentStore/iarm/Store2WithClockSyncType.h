@@ -25,7 +25,7 @@
 
 namespace WPEFramework {
 namespace Plugin {
-    namespace Sqlite {
+    namespace Iarm {
 
         template <typename ACTUALSTORE2>
         class Store2WithClockSyncType : public ACTUALSTORE2 {
@@ -49,35 +49,35 @@ namespace Plugin {
                 {
                     auto rc = IARM_Bus_Init("Thunder_Plugins");
                     if ((rc != IARM_RESULT_SUCCESS) && (rc != IARM_RESULT_INVALID_STATE)) {
-                        TRACE(Trace::Error, (_T("Sqlite IARM init error %d"), rc));
+                        TRACE(Trace::Error, (_T("Store IARM init error %d"), rc));
                     }
                     rc = IARM_Bus_Connect();
                     if ((rc != IARM_RESULT_SUCCESS) && (rc != IARM_RESULT_INVALID_STATE)) {
-                        TRACE(Trace::Error, (_T("Sqlite IARM connect error %d"), rc));
+                        TRACE(Trace::Error, (_T("Store IARM connect error %d"), rc));
                     }
 
                     IARM_Bus_SYSMgr_GetSystemStates_Param_t param;
                     memset(&param, 0, sizeof(param));
                     rc = IARM_Bus_Call(IARM_BUS_SYSMGR_NAME, IARM_BUS_SYSMGR_API_GetSystemStates, &param, sizeof(param));
                     if (rc == IARM_RESULT_SUCCESS) {
-                        TRACE(Trace::Information, (_T("Sqlite time source state is %d"), param.time_source.state));
+                        TRACE(Trace::Information, (_T("Store time source state is %d"), param.time_source.state));
                         if (param.time_source.state) {
                             ClockSyncSingleton::Instance().Synced = true;
                         }
                     } else {
-                        TRACE(Trace::Error, (_T("Sqlite IARM call error %d"), rc));
+                        TRACE(Trace::Error, (_T("Store IARM call error %d"), rc));
                     }
 
                     rc = IARM_Bus_RegisterEventHandler(IARM_BUS_SYSMGR_NAME, IARM_BUS_SYSMGR_EVENT_SYSTEMSTATE, Handler);
                     if (rc != IARM_RESULT_SUCCESS) {
-                        TRACE(Trace::Error, (_T("Sqlite IARM register error %d"), rc));
+                        TRACE(Trace::Error, (_T("Store IARM register error %d"), rc));
                     }
                 }
                 ~IARMHandler()
                 {
                     auto rc = IARM_Bus_RemoveEventHandler(IARM_BUS_SYSMGR_NAME, IARM_BUS_SYSMGR_EVENT_SYSTEMSTATE, Handler);
                     if (rc != IARM_RESULT_SUCCESS) {
-                        TRACE(Trace::Error, (_T("Sqlite IARM remove error %d"), rc));
+                        TRACE(Trace::Error, (_T("Store IARM remove error %d"), rc));
                     }
                 }
 
@@ -86,7 +86,7 @@ namespace Plugin {
                 {
                     auto sysEventData = (IARM_Bus_SYSMgr_EventData_t*)data;
                     if (sysEventData->data.systemStates.stateId == IARM_BUS_SYSMGR_SYSSTATE_TIME_SOURCE) {
-                        TRACE_GLOBAL(Trace::Information, (_T("Sqlite time source state changed %d"), sysEventData->data.systemStates.state));
+                        TRACE_GLOBAL(Trace::Information, (_T("Store time source state changed %d"), sysEventData->data.systemStates.state));
                         ClockSyncSingleton::Instance().Synced = sysEventData->data.systemStates.state;
                     }
                 }
@@ -129,6 +129,6 @@ namespace Plugin {
             IARMHandler handler;
         };
 
-    } // namespace Sqlite
+    } // namespace Iarm
 } // namespace Plugin
 } // namespace WPEFramework
