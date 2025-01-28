@@ -1,0 +1,289 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rdkcentral/rdkservices/main/Tools/json_generator/schemas/interface.schema.json",
+  "jsonrpc": "2.0",
+  "info": {
+    "title": "ContentProtection API",
+    "class": "ContentProtection",
+    "description": "ContentProtection shall bridge between different playback security related components to provide a single interface layer for the integrated players"
+  },
+  "common": {
+    "$ref": "../common/common.json"
+  },
+  "definitions": {
+    "keySystem": {
+      "type": "string",
+      "enum": [
+        "widevine",
+        "playready",
+        "clearkey"
+      ],
+      "enumids": [
+        "WIDEVINE",
+        "PLAYREADY",
+        "CLEARKEY"
+      ],
+      "example": "widevine"
+    },
+    "sessionState": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "enumids": [
+        "ACTIVE",
+        "INACTIVE"
+      ],
+      "example": "active"
+    },
+    "watermarkState": {
+      "type": "string",
+      "enum": [
+        "GRANTED",
+        "NOT_REQUIRED",
+        "DENIED",
+        "FAILED"
+      ],
+      "example": "GRANTED"
+    },
+    "licenseRequest": {
+      "summary": "Base64-encoded representation of the DRM license request provided by the DRM content protection client",
+      "type": "string"
+    },
+    "initData": {
+      "summary": "Platform specific init data required to service DRM session request",
+      "type": "string",
+      "example": "{}"
+    },
+    "sessionId": {
+      "summary": "Sec manager generated playback session id",
+      "type": "number"
+    }
+  },
+  "methods": {
+    "openDrmSession": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "summary": "Identifier of the client that establishes the playback session",
+            "type": "string",
+            "example": "com.comcast.vipa:1"
+          },
+          "keySystem": {
+            "$ref": "#/definitions/keySystem"
+          },
+          "licenseRequest": {
+            "$ref": "#/definitions/licenseRequest"
+          },
+          "initData": {
+            "$ref": "#/definitions/initData"
+          }
+        },
+        "required": [
+          "clientId",
+          "keySystem",
+          "licenseRequest",
+          "initData"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "$ref": "#/definitions/sessionId"
+          },
+          "openSessionResponse": {
+            "summary": "Shall be an abstract JSON container object whose attributes are video platform specific and contain the response data",
+            "type": "string",
+            "example": "{}"
+          }
+        },
+        "required": [
+          "sessionId",
+          "openSessionResponse"
+        ]
+      },
+      "errors": [
+        {
+          "$ref": "#/common/errors/general"
+        }
+      ]
+    },
+    "setDrmSessionState": {
+      "summary": "Sets the state of the playback session to either active or inactive. When active, the playback session is decrypting and decoding video and processing related watermark updates. When inactive, video and watermark updates are not processed but the existing resource and memory usage associated with the session are maintained",
+      "params": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "$ref": "#/definitions/sessionId"
+          },
+          "sessionState": {
+            "$ref": "#/definitions/sessionState"
+          }
+        },
+        "required": [
+          "sessionId",
+          "sessionState"
+        ]
+      },
+      "errors": [
+        {
+          "description": "No such session",
+          "$ref": "#/common/errors/illegalstate"
+        },
+        {
+          "$ref": "#/common/errors/general"
+        }
+      ]
+    },
+    "updateDrmSession": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "$ref": "#/definitions/sessionId"
+          },
+          "licenseRequest": {
+            "$ref": "#/definitions/licenseRequest"
+          },
+          "initData": {
+            "$ref": "#/definitions/initData"
+          }
+        },
+        "required": [
+          "sessionId",
+          "licenseRequest",
+          "initData"
+        ]
+      },
+      "result": {
+        "summary": "Opaque response for the update session request",
+        "type": "string",
+        "example": "{}"
+      },
+      "errors": [
+        {
+          "description": "No such session",
+          "$ref": "#/common/errors/illegalstate"
+        },
+        {
+          "$ref": "#/common/errors/general"
+        }
+      ]
+    },
+    "closeDrmSession": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "$ref": "#/definitions/sessionId"
+          }
+        },
+        "required": [
+          "sessionId"
+        ]
+      },
+      "errors": [
+        {
+          "description": "No such session",
+          "$ref": "#/common/errors/illegalstate"
+        },
+        {
+          "$ref": "#/common/errors/general"
+        }
+      ]
+    },
+    "showWatermark": {
+      "summary": "True to show the watermark or false to hide the watermark",
+      "params": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "$ref": "#/definitions/sessionId"
+          },
+          "show": {
+            "description": "True, when watermark has to be presented. Otherwise false",
+            "type": "boolean",
+            "example": true
+          },
+          "localOverlay": {
+            "description": "True, if the WM overlay is locally generated one. Otherwise false (for ones generated using a remote online service)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sessionId",
+          "show",
+          "localOverlay"
+        ]
+      },
+      "errors": [
+        {
+          "$ref": "#/common/errors/general"
+        }
+      ]
+    },
+    "setPlaybackPosition": {
+      "summary": "From ASID SDK specification, it seems like a hard requirement to set current playback position with ASID client",
+      "params": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "$ref": "#/definitions/sessionId"
+          },
+          "speed": {
+            "description": "Current playback speed",
+            "type": "number"
+          },
+          "position": {
+            "description": "Current Playback position",
+            "type": "number"
+          }
+        },
+        "required": [
+          "sessionId",
+          "speed",
+          "position"
+        ]
+      },
+      "errors": [
+        {
+          "$ref": "#/common/errors/general"
+        }
+      ]
+    }
+  },
+  "events": {
+    "onWatermarkStatusChanged": {
+      "summary": "Watermark session update event",
+      "params": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "$ref": "#/definitions/sessionId"
+          },
+          "status": {
+            "summary": "Watermarking session status context",
+            "type": "object",
+            "properties": {
+              "state": {
+                "$ref": "#/definitions/watermarkState"
+              },
+              "failureReason": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          }
+        },
+        "required": [
+          "sessionId",
+          "status"
+        ]
+      }
+    }
+  }
+}
